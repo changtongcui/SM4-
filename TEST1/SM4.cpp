@@ -60,3 +60,42 @@ void SM4_Key_set(uint8_t* key, Keys* round_keys) {
         k[3] = tmp;
     }
 }
+void SM4_encrypt(uint8_t* input, uint8_t* enc_result, Keys* round_keys) {
+    uint32_t x[4];
+    //载入需要加密的内容
+    for (int i = 0; i < 16; i = i + 4) {
+        x[i / 4] = (input[i] << 24) | (input[i + 1] << 16) | (input[i + 2] << 8) | (input[i + 3]);
+    }
+    //32轮轮函数
+    for (int i = 0; i < 32; i++) {
+        //异或轮密钥
+        uint32_t tmp = x[1] ^ x[2] ^ x[3] ^ round_keys->rk[i];
+        //过S盒
+        uint8_t b0 = SBox[uint8_t(tmp >> 24)];
+        uint8_t b1 = SBox[uint8_t(tmp >> 16)];
+        uint8_t b2 = SBox[uint8_t(tmp >> 8)];
+        uint8_t b3 = SBox[uint8_t(tmp >> 0)];
+        tmp = (b0 << 24) | (b1 << 16) | (b2 << 8) | b3;
+        //线性变换L
+        tmp = tmp ^ ((tmp << 2) | (tmp >> 30)) ^ ((tmp << 10) | (tmp >> 22)) 
+            ^ ((tmp << 18) | (tmp >> 14)) ^ ((tmp << 24) | (tmp >> 8));
+        //交叉
+        x[0] = x[1];
+        x[1] = x[2];
+        x[2] = x[3];
+        x[3] = tmp;
+    }
+    //最后一轮反序输出
+    uint32_t tmp = x[0];
+    x[0] = x[3];
+    x[3] = tmp;
+    x[1] = x[2];
+    x[2] = tmp;
+    //大端序输出
+    for (int i = 0; i < 4; i++) {
+        enc_result[4 * i + 0] = (x[i] >> 24) & 0xFF;
+        enc_result[4 * i + 1] = (x[i] >> 16) & 0xFF;
+        enc_result[4 * i + 2] = (x[i] >> 8) & 0xFF;
+        enc_result[4 * i + 3] = (x[i] >> 0) & 0xFF;
+    }
+}
